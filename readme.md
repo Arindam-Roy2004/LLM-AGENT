@@ -1,5 +1,7 @@
 # AI Assistant Chat (Streamlit + LangGraph)
 
+[Live Demo (GitHub Pages)](https://arindam-roy2004.github.io/LLM-AGENT/)
+
 An AI assistant built with Streamlit that can:
 - 🌤️ Get current weather via WeatherAPI
 - 📈 Fetch previous closing stock prices via yfinance
