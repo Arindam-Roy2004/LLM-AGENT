@@ -325,27 +325,55 @@ def create_tools(weather_key, tavily_key, debug_mode=False):
                 error_msg += f"\n\n**Traceback**:\n``````"
             return error_msg
     
-    # Create search tool with new TavilySearch class
+    # Replace Tavily direct tool with a wrapper named exactly "search_tool"
     if tavily_key:
-        try:
-            search_tool = TavilySearch(
-                name="tavily_search_tool",
-                description="A powerful search engine. Use this for any questions about real-world, factual, or up-to-date information, including dates, events, news, and statistics.",
-                max_results=3,
-                tavily_api_key=tavily_key.strip()
-            )
-        except Exception as e:
-            @tool
-            def fallback_search_tool(query: str):
-                """Fallback search tool when Tavily API fails"""
-                return f"❌ **Search Error**: Tavily API setup failed: {str(e)}"
-            search_tool = fallback_search_tool
+        @tool("search_tool")
+        def search_tool(query: str) -> str:
+            """Use this for real-world, factual, or up-to-date information (events, dates, news, stats)."""
+            try:
+                ts = TavilySearch(tavily_api_key=tavily_key.strip(), max_results=5)
+                result = ts.invoke({"query": query})
+                
+                if debug_mode:
+                    st.write("🔍 Tavily raw result:")
+                    try:
+                        st.write(result if isinstance(result, (dict, list)) else str(result)[:1000])
+                    except Exception:
+                        pass
+                
+                # Normalize to a list of items
+                items = None
+                if isinstance(result, list):
+                    items = result
+                elif isinstance(result, dict):
+                    if isinstance(result.get("results"), list):
+                        items = result["results"]
+                
+                if items:
+                    lines = []
+                    for i, item in enumerate(items[:3], 1):
+                        title = (
+                            item.get("title") if isinstance(item, dict) else None
+                        ) or "Result"
+                        url = (
+                            item.get("url") if isinstance(item, dict) else None
+                        ) or ""
+                        snippet = (
+                            item.get("content") if isinstance(item, dict) else None
+                        ) or (item.get("snippet") if isinstance(item, dict) else "")
+                        part = f"{i}. {title}\n{url}\n{snippet}".strip()
+                        lines.append(part)
+                    return "🔎 Top results:\n\n" + "\n\n".join(lines)
+                
+                # Fallback to string representation
+                return str(result)
+            except Exception as e:
+                return f"❌ **Search Error**: {str(e)}"
     else:
-        @tool
-        def dummy_search_tool(query: str):
+        @tool("search_tool")
+        def search_tool(query: str) -> str:
             """Dummy search tool when API key is not provided"""
             return "❌ **Search Unavailable**: Please provide a Tavily API key to enable web search functionality."
-        search_tool = dummy_search_tool
     
     return [get_weather, get_stock_price, search_tool]
 
